@@ -22,7 +22,7 @@ for exactly the state on screen. Measurements ("casting the net") are honest
 shots sampled from the circuit's true output distribution — no JavaScript
 pretending.
 
-## The levels (1–5 are the conceptual arc; 6 is the boss: build it yourself)
+## The levels (1–5 = the complete conceptual arc; 6–7 = the player takes the wheel)
 
 | # | Level | The one idea it teaches |
 |---|-------|------------------------|
@@ -31,24 +31,19 @@ pretending.
 | 3 | Invisible Ink | The oracle flips the target's sign — and measurement can't see it. Kills the "checks everything at once" myth. |
 | 4 | The Mirror | Diffusion = reflect across the average. Player *predicts* the reflection by dragging ghost bars before the reveal. |
 | 5 | Ping! | mark + mirror = one Grover iteration. Player hunts a fish with sonar pings; ~3 pings beat ~8 classical flips. |
-| 6 | Qubit Complete | Free-build sandbox: the three spells as raw pieces, no recipe, undo/clear, progressive hints. Reach a 90% catch chance with your own chain and you've reinvented Grover's algorithm yourself. |
+| 6 | Qubit Complete | Free build at the spell level: no recipe, just the three spells and a goal. The player *reinvents* Grover's chain themselves. |
+| 7 | The Spellsmith | Free build at the **gate** level: forge spread/mark/mirror out of raw H, X, Z, CZ gates on a 2-wire bench, then hunt with circuits built entirely by hand. mark and mirror are verified as **full unitaries** server-side — any correct construction passes, and a build that only works on one ocean doesn't. On 4 shells, one hand-built ping = a guaranteed catch. |
 
 Each level ends with a **field note** collected into a journal — read top to
 bottom, the journal is a complete plain-language explanation of Grover's
 algorithm. The game writes its own textbook as you play.
 
-New players are never lost: **Coral the crab** 🦀 guides every level step by
-step — the next button to press literally glows, each action gets an
-immediate plain-language explanation, and every jargon word is tappable for
-a first-principles definition. (A player with zero quantum background
-playtested the pre-tutorial build and bounced off it; Coral is the fix.)
-
 ### Stretch roadmap (in priority order)
 
-7. **Don't Overwind** — success probability peaks at ~3 pings for 16 tiles, then *falls* (it's 58% at 4 pings — the backend already computes this). Compass/rotation visualization.
-8. **Bigger Oceans** — 64 tiles → ~6 pings, not 4×: discover √N scaling. (Backend already supports up to 256 tiles.)
-9. **Two Fish** — multiple targets need *fewer* pings. Oracle change is a few lines.
-10. **The Real Ocean** — no god's-eye heatmap, only a noisy histogram from limited shots. (`/api/sample` with `shots` already does this.)
+8. **Don't Overwind** — success probability peaks at ~3 pings for 16 tiles, then *falls* (it's 58% at 4 pings — the backend already computes this). Compass/rotation visualization.
+9. **Bigger Oceans** — 64 tiles → ~6 pings, not 4×: discover √N scaling. (Backend already supports up to 256 tiles.)
+10. **Two Fish** — multiple targets need *fewer* pings. Oracle change is a few lines.
+11. **The Real Ocean (boss)** — no god's-eye heatmap, only a noisy histogram from limited shots. (`/api/sample` with `shots` already does this.)
 
 ## Run it
 
@@ -79,7 +74,7 @@ cd backend && python test_quantum.py
 ```
 
 Expected: after 1 ping P(target) ≈ 0.47, after 2 ≈ 0.91, after 3 ≈ 0.96
-(the sweet spot), after 4 ≈ 0.58 (overwound — Don't-Overwind stretch material).
+(the sweet spot), after 4 ≈ 0.58 (overwound — Level 6 material).
 
 ## Architecture
 
@@ -101,9 +96,7 @@ frontend/          React + Vite + TypeScript + Tailwind
     Journal.tsx              collected field notes
     UnderTheHood.tsx         live Qiskit circuit diagram panel
     LevelFrame.tsx           shared level chrome + field-note flow
-    Guide.tsx                Coral the guide: per-level tutorial scripts +
-                             tap-to-define jargon glossary
-  src/levels/Level1–6.tsx    one file per level
+  src/levels/Level1–5.tsx    one file per level
 ```
 
 A note on phases, for the curious: Grover keeps the statevector real, but

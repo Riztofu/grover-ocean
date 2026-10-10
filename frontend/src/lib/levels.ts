@@ -52,6 +52,13 @@ export const LEVELS: LevelMeta[] = [
     fieldNote:
       "Given only the raw spells and no recipe, the winning chain is: spread once, then (mark → mirror) repeated ~3 times, then measure. That chain has a name — Grover's algorithm — and the shortest route to it isn't memorizing; it's understanding what each piece does.",
   },
+  {
+    id: 7,
+    title: "The Spellsmith",
+    subtitle: "Forge the spells themselves from raw quantum gates",
+    fieldNote:
+      "Every spell is itself a tiny circuit of raw gates: spread = a Hadamard on each wire, mark = a controlled-Z wrapped in X's, mirror = H's and X's wrapped around one controlled-Z. A quantum algorithm isn't a magic box — it's wiring. On a 4-shell ocean, the circuit I built by hand caught the fish with 100% certainty.",
+  },
 ];
 
 export const NUM_TILES = 16;

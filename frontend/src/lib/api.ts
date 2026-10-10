@@ -86,3 +86,75 @@ export function pingOps(k: number): Op[] {
   for (let i = 0; i < k; i++) ops.push("mark", "mirror");
   return ops;
 }
+
+// --------------------------------------------------------------------------
+// Level 7 — The Spellsmith: gate-level workbench
+// --------------------------------------------------------------------------
+
+export type SingleGate = "h" | "x" | "z";
+
+/** One time-step on the workbench: either a CZ spanning both wires, or
+ *  up to one single-qubit gate per wire. */
+export interface BenchColumn {
+  cz: boolean;
+  wires: (SingleGate | null)[]; // index = wire number (0 = the 1s bit)
+}
+
+export const emptyBenchColumn = (): BenchColumn => ({ cz: false, wires: [null, null] });
+
+export const emptyBench = (cols: number): BenchColumn[] =>
+  Array.from({ length: cols }, emptyBenchColumn);
+
+export function benchIsEmpty(columns: BenchColumn[]): boolean {
+  return columns.every((c) => !c.cz && c.wires.every((w) => w === null));
+}
+
+/** Convert bench columns to the backend wire format (empty columns dropped). */
+function columnsToApi(columns: BenchColumn[]): { g: string; q?: number }[][] {
+  const out: { g: string; q?: number }[][] = [];
+  for (const col of columns) {
+    if (col.cz) {
+      out.push([{ g: "cz" }]);
+      continue;
+    }
+    const placements = col.wires.flatMap((g, q) => (g ? [{ g, q }] : []));
+    if (placements.length > 0) out.push(placements);
+  }
+  return out;
+}
+
+export interface BenchResult {
+  amplitudes: number[];
+  probabilities: number[];
+  numQubits: number;
+  diagram: string;
+  solved: boolean;
+  counts?: Record<string, number>;
+}
+
+export async function fetchBench(
+  columns: BenchColumn[],
+  puzzle: string,
+  shots?: number
+): Promise<BenchResult> {
+  const raw = await post<{
+    amplitudes: number[];
+    probabilities: number[];
+    num_qubits: number;
+    diagram: string;
+    solved: boolean;
+    counts?: Record<string, number>;
+  }>("/api/bench", {
+    columns: columnsToApi(columns),
+    puzzle,
+    ...(shots !== undefined ? { shots } : {}),
+  });
+  return {
+    amplitudes: raw.amplitudes,
+    probabilities: raw.probabilities,
+    numQubits: raw.num_qubits,
+    diagram: raw.diagram,
+    solved: raw.solved,
+    counts: raw.counts,
+  };
+}

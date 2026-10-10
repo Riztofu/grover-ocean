@@ -51,3 +51,18 @@ def get_sample(req: SampleRequest) -> dict:
         return quantum.sample(req.num_tiles, req.target, req.ops, req.shots)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class BenchRequest(BaseModel):
+    columns: list[list[dict]] = Field(default_factory=list, description="Workbench gate columns")
+    puzzle: str = Field(default="free", description='"flip"|"spread"|"mark0".."mark3"|"mirror"|"free"')
+    shots: int | None = Field(default=None, description="Optional: sample measurement shots")
+
+
+@app.post("/api/bench")
+def post_bench(req: BenchRequest) -> dict:
+    """Level 7 (The Spellsmith): run and verify a player-built gate circuit."""
+    try:
+        return quantum.bench(req.columns, req.puzzle, req.shots)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

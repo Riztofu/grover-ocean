@@ -8,6 +8,7 @@ import Level3 from "./levels/Level3";
 import Level4 from "./levels/Level4";
 import Level5 from "./levels/Level5";
 import Level6 from "./levels/Level6";
+import Level7 from "./levels/Level7";
 
 interface Progress {
   collected: number[]; // level ids with field note collected
@@ -138,6 +139,7 @@ export default function App() {
         {current === 4 && <Level4 {...levelProps(4)} />}
         {current === 5 && <Level5 {...levelProps(5)} />}
         {current === 6 && <Level6 {...levelProps(6)} />}
+        {current === 7 && <Level7 {...levelProps(7)} />}
       </main>
 
       {showWelcome && (

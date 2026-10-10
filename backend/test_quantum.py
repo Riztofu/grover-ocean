@@ -60,5 +60,65 @@ def main():
     print(f"  after 4 pings: P(target) = {p4:.4f}   <- overwound! (Level 6 material)")
 
 
+
+
+def bench_main():
+    """Level 7 workbench: gate-level building + verification."""
+    H2 = [[{"g": "h", "q": 0}, {"g": "h", "q": 1}]]
+    CZ = [[{"g": "cz"}]]
+    X_WRAP_1 = [[{"g": "x", "q": 1}], [{"g": "cz"}], [{"g": "x", "q": 1}]]
+    MIRROR = (
+        H2
+        + [[{"g": "x", "q": 0}, {"g": "x", "q": 1}]]
+        + CZ
+        + [[{"g": "x", "q": 0}, {"g": "x", "q": 1}]]
+        + H2
+    )
+
+    # 1. flip: X on wire 1 moves the pearl |00> -> |10> (shell 2); HZH = X passes too
+    assert quantum.bench([[{"g": "x", "q": 1}]], "flip")["solved"]
+    assert quantum.bench(
+        [[{"g": "h", "q": 1}], [{"g": "z", "q": 1}], [{"g": "h", "q": 1}]], "flip"
+    )["solved"], "any circuit producing the right state must pass"
+    assert not quantum.bench([[{"g": "x", "q": 0}]], "flip")["solved"]
+
+    # 2. spread: H on each wire, in one column or two
+    assert quantum.bench(H2, "spread")["solved"]
+    assert quantum.bench([[{"g": "h", "q": 0}], [{"g": "h", "q": 1}]], "spread")["solved"]
+
+    # 3. mark: CZ is the oracle for shell 3 — and marking is still invisible
+    b = quantum.bench(CZ, "mark3")
+    assert b["solved"]
+    assert close(b["amplitudes"][3], -0.5), "sign flipped"
+    assert all(close(p, 0.25) for p in b["probabilities"]), "probabilities unchanged"
+    # mark is checked as a UNITARY: it must work on every ocean, so Z (which
+    # happens to look right on some states) is rejected
+    assert not quantum.bench([[{"g": "z", "q": 0}]], "mark3")["solved"]
+    # retargeting: wrap CZ in X on the wires where the shell's bit is 0
+    assert quantum.bench(X_WRAP_1, "mark1")["solved"]
+
+    # 4. mirror: textbook diffusion; on the marked 4-shell state it gives certainty
+    m = quantum.bench(MIRROR, "mirror")
+    assert m["solved"]
+    assert close(m["probabilities"][3], 1.0, tol=1e-9), "N=4, 1 iteration -> P=1 exactly"
+
+    # 5. the hunt: chain the player's three builds; one ping = guaranteed catch
+    chain = H2 + X_WRAP_1 + MIRROR
+    h = quantum.bench(chain, "free", shots=20)
+    assert close(h["probabilities"][1], 1.0, tol=1e-9)
+    assert h["counts"] == {1: 20}, "every cast lands on the fish"
+
+    # 6. junk is rejected
+    for bad in ([[{"g": "t", "q": 0}]], [[{"g": "h", "q": 5}]], [[{"g": "cz"}, {"g": "h", "q": 0}]]):
+        try:
+            quantum.bench(bad, "free")
+            raise AssertionError(f"should have rejected {bad}")
+        except ValueError:
+            pass
+
+    print("Workbench tests passed \u2714")
+
+
 if __name__ == "__main__":
     main()
+    bench_main()

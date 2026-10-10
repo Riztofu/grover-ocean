@@ -22,6 +22,10 @@ const GLOSSARY: Record<string, string> = {
     "The basic quantum gate that puts one qubit into an equal mix of 0 and 1. Applying one to each of the 4 qubits spreads the state evenly over all 16 shells — that's the whole 'spread' spell.",
   qubit:
     "A quantum bit. One qubit covers 2 possibilities; 4 qubits together cover 2×2×2×2 = 16 — one for each shell in this ocean.",
+  "quantum gate":
+    "The basic building block of a quantum circuit — like AND/OR/NOT in digital logic, but for qubits. This game's bench has four: X (flip a bit), H (spread into a mix), Z (flip the sign where a wire reads 1), and CZ (flip the sign only where BOTH wires read 1). Chains of simple gates are all any quantum algorithm is.",
+  "no-cloning theorem":
+    "A proven law of quantum mechanics: there is no circuit that copies an unknown qubit. That's why quantum circuits look like parallel rails instead of branching wires — a wire can never fan out, because fanning out IS copying.",
 };
 
 export function Term({ t, children }: { t: string; children?: ReactNode }) {

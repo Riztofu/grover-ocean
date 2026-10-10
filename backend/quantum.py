@@ -128,3 +128,136 @@ def sample(num_tiles: int, target: int, ops: list[str], shots: int) -> dict:
         "counts": {int(i): int(c) for i, c in enumerate(counts) if c > 0},
         "shots": shots,
     }
+
+
+# ---------------------------------------------------------------------------
+# The Spellsmith workbench (Level 7): gate-level circuit building.
+#
+# The player builds circuits out of RAW gates (H, X, Z, CZ) on a 2-qubit
+# bench (a 4-shell training pool), and we verify their build against the
+# real thing. Two kinds of check:
+#
+#   - "state"   : the player's circuit, run on |00>, must produce the target
+#                 state (up to an unobservable global phase). Friendly — any
+#                 construction that produces the right state passes.
+#   - "unitary" : the player's circuit must equal the reference operation on
+#                 EVERY input (up to global phase). This is the honest test
+#                 for mark and mirror, which must work on any ocean, not just
+#                 the one on screen. Qiskit compares the full unitary, so any
+#                 correct construction passes — including ones we never
+#                 thought of.
+# ---------------------------------------------------------------------------
+
+from qiskit.quantum_info import Operator
+
+BENCH_QUBITS = 2  # 4 shells — big enough to be real, small enough to wire by hand
+BENCH_MAX_COLS = 24  # generous: the final hunt chains three builds together
+SINGLE_GATES = ("h", "x", "z")
+
+
+def _bench_circuit(columns: list) -> QuantumCircuit:
+    """Build a circuit from workbench columns.
+
+    Each column is a list of placements: {"g": "h"|"x"|"z", "q": wire}
+    for single-qubit gates, or [{"g": "cz"}] for a controlled-Z spanning
+    the column. Gates in one column act at the same time step.
+    """
+    if not isinstance(columns, list) or len(columns) > BENCH_MAX_COLS:
+        raise ValueError(f"columns must be a list of at most {BENCH_MAX_COLS} columns")
+    qc = QuantumCircuit(BENCH_QUBITS)
+    for col in columns:
+        if not isinstance(col, list):
+            raise ValueError("each column must be a list of gate placements")
+        if not col:
+            continue
+        if any(isinstance(p, dict) and p.get("g") == "cz" for p in col):
+            if len(col) != 1:
+                raise ValueError("a controlled-Z takes its whole column")
+            qc.cz(0, 1)
+            qc.barrier()
+            continue
+        used: set[int] = set()
+        for p in col:
+            if not isinstance(p, dict):
+                raise ValueError("bad gate placement")
+            g, q = p.get("g"), p.get("q")
+            if g not in SINGLE_GATES:
+                raise ValueError(f"unknown gate {g!r}; bench gates are h, x, z, cz")
+            if not isinstance(q, int) or not (0 <= q < BENCH_QUBITS):
+                raise ValueError("gate placed on a wire that doesn't exist")
+            if q in used:
+                raise ValueError("one gate per wire per column")
+            used.add(q)
+            getattr(qc, g)(q)
+        qc.barrier()
+    return qc
+
+
+def _reference_oracle(target: int) -> QuantumCircuit:
+    qc = QuantumCircuit(BENCH_QUBITS)
+    _oracle(qc, BENCH_QUBITS, target)
+    return qc
+
+
+def _reference_diffusion() -> QuantumCircuit:
+    qc = QuantumCircuit(BENCH_QUBITS)
+    _diffusion(qc, BENCH_QUBITS)
+    return qc
+
+
+def _bench_check(qc_player: QuantumCircuit, puzzle: str) -> bool:
+    """Does the player's circuit solve the puzzle?"""
+    if puzzle == "free":
+        return False
+    if puzzle == "flip":  # move the pearl |00> -> shell 2 (|10>)
+        return Statevector.from_instruction(qc_player).equiv(Statevector.from_label("10"))
+    if puzzle == "spread":  # |00> -> equal superposition
+        ref = QuantumCircuit(BENCH_QUBITS)
+        ref.h(range(BENCH_QUBITS))
+        return Statevector.from_instruction(qc_player).equiv(Statevector.from_instruction(ref))
+    if puzzle.startswith("mark"):
+        target = int(puzzle[4:])
+        if not (0 <= target < 2**BENCH_QUBITS):
+            raise ValueError("bad mark target")
+        return Operator(qc_player).equiv(Operator(_reference_oracle(target)))
+    if puzzle == "mirror":
+        return Operator(qc_player).equiv(Operator(_reference_diffusion()))
+    raise ValueError(f"unknown puzzle {puzzle!r}")
+
+
+def bench(columns: list, puzzle: str = "free", shots: int | None = None) -> dict:
+    """Run (and optionally verify) a player-built gate circuit.
+
+    The chart input depends on the puzzle: mark puzzles show the circuit
+    acting on the spread state (so the sign flip is visible), the mirror
+    puzzle shows it acting on a marked state (so the vault is visible);
+    everything else starts from |00>.
+    """
+    qc_player = _bench_circuit(columns)
+
+    prep = QuantumCircuit(BENCH_QUBITS)
+    if puzzle.startswith("mark"):
+        prep.h(range(BENCH_QUBITS))
+    elif puzzle == "mirror":
+        prep.h(range(BENCH_QUBITS))
+        _oracle(prep, BENCH_QUBITS, 3)
+    full = prep.compose(qc_player)
+
+    amps = real_amplitudes(full)
+    probs = amps**2
+    out: dict = {
+        "amplitudes": [float(a) for a in amps],
+        "probabilities": [float(p) for p in probs],
+        "num_qubits": BENCH_QUBITS,
+        "diagram": str(qc_player.draw(output="text", fold=110)),
+        "solved": bool(_bench_check(qc_player, puzzle)),
+    }
+    if shots is not None:
+        if not (1 <= shots <= 10000):
+            raise ValueError("shots must be between 1 and 10000")
+        p = probs / probs.sum()
+        rng = np.random.default_rng()
+        counts = rng.multinomial(shots, p)
+        out["counts"] = {int(i): int(c) for i, c in enumerate(counts) if c > 0}
+        out["shots"] = shots
+    return out
