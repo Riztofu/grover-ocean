@@ -1,0 +1,4 @@
+qiskit>=1.2
+fastapi>=0.115
+uvicorn>=0.30
+numpy>=1.26

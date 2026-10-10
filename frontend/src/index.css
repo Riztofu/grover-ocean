@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+body {
+  background: linear-gradient(180deg, #06283d 0%, #052033 45%, #031a2b 100%);
+  min-height: 100vh;
+  color: #dff6ff;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Smooth bar animation for the amplitude chart */
+.amp-bar {
+  transition: y 0.6s ease, height 0.6s ease, fill 0.4s ease;
+}
+
+/* "Click me next" glow for the guided tutorial */
+@keyframes guidePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.75);
+  }
+  50% {
+    box-shadow: 0 0 0 9px rgba(255, 209, 102, 0);
+  }
+}
+.pulse-glow {
+  animation: guidePulse 1.3s ease-out infinite;
+}
+
+/* Shell flip */
+.shell {
+  transition: transform 0.15s ease, background-color 0.3s ease;
+}
+.shell:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.04);
+}
