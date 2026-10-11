@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import GuideBox, { Do, Term } from "../components/Guide";
 import LevelFrame from "../components/LevelFrame";
 import OceanGrid from "../components/OceanGrid";
-import { fetchSample, pingOps } from "../lib/api";
+import { fetchSample, hostBackend, pingOps, runOnHost, type HostBackend } from "../lib/api";
 import { randomTarget } from "../lib/levels";
 
 /**
@@ -36,6 +36,8 @@ interface Expedition {
   pings: number;
   shots: number;
   counts: Record<string, number>;
+  /** set when the shots came from the Qollab-selected backend (e.g. IonQ) */
+  backend?: string;
 }
 
 type Outcome = null | "win" | "lose";
@@ -53,22 +55,48 @@ export default function Level11({ noteCollected, onCollectNote, onApiError }: Pr
   const [wins, setWins] = useState<Record<Sea, number | null>>({ calm: null, choppy: null }); // shots used on the win
   const [busy, setBusy] = useState(false);
 
+  // Qollab only: the backend the judge picked in "Select QPU" (IonQ allows one job per Run)
+  const [host, setHost] = useState<HostBackend | null>(null);
+  const [hostUsed, setHostUsed] = useState(false);
+  useEffect(() => {
+    hostBackend().then(setHost).catch(() => setHost(null));
+  }, []);
+
   const cfg = SEAS[sea];
   const used = log.reduce((s, e) => s + e.shots, 0);
   const left = cfg.budget - used;
   const locked = outcome !== null;
+
+  function record(entry: Expedition) {
+    setLog((l) => [...l, entry]);
+    setTally((t) => {
+      const next = { ...t };
+      for (const [tile, c] of Object.entries(entry.counts)) next[tile] = (next[tile] ?? 0) + c;
+      return next;
+    });
+  }
 
   async function expedition() {
     if (locked || shots > left) return;
     setBusy(true);
     try {
       const r = await fetchSample(TILES, fish, pingOps(dial), shots, cfg.noise);
-      setLog((l) => [...l, { pings: dial, shots, counts: r.counts }]);
-      setTally((t) => {
-        const next = { ...t };
-        for (const [tile, c] of Object.entries(r.counts)) next[tile] = (next[tile] ?? 0) + c;
-        return next;
-      });
+      record({ pings: dial, shots, counts: r.counts });
+    } catch (e) {
+      onApiError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The same expedition, but the shots come from the real backend (one job). */
+  async function expeditionOnHost() {
+    if (!host || locked || shots > left) return;
+    setBusy(true);
+    try {
+      const r = await runOnHost(TILES, fish, pingOps(dial), shots);
+      if (host.ionq) setHostUsed(true);
+      record({ pings: dial, shots, counts: r.counts, backend: r.backend });
     } catch (e) {
       onApiError(e);
     } finally {
@@ -253,6 +281,21 @@ export default function Level11({ noteCollected, onCollectNote, onApiError }: Pr
         >
           📡 Run expedition ({dial} ping{dial === 1 ? "" : "s"} × {shots} shot{shots === 1 ? "" : "s"})
         </button>
+        {host && (
+          <button
+            onClick={() => void expeditionOnHost()}
+            disabled={locked || busy || shots > left || (host.ionq && hostUsed)}
+            title={
+              host.ionq && hostUsed
+                ? "Qollab allows one IonQ job per Run — press Stop, then Run, to cast on IonQ again"
+                : `Send this expedition as ONE job to ${host.label}`
+            }
+            className="rounded-lg bg-emerald-300 text-[#06283d] font-semibold px-4 py-2 text-sm hover:bg-emerald-200 disabled:opacity-40"
+          >
+            ☁️ Cast on {host.short}
+            {host.ionq && hostUsed ? " (used this Run)" : ""}
+          </button>
+        )}
         <button
           onClick={declare}
           disabled={locked || busy || selected === null}
@@ -293,6 +336,7 @@ export default function Level11({ noteCollected, onCollectNote, onApiError }: Pr
                     .sort((a, b) => b[1] - a[1])
                     .map(([t, c]) => (c > 1 ? `${t}×${c}` : t))
                     .join(", ")}
+                  {e.backend && <span className="text-emerald-300"> · on {e.backend}</span>}
                 </span>
               </li>
             ))}

@@ -8,3 +8,6 @@ __pycache__/
 
 # demo recording is uploaded separately (YouTube/Drive), not committed
 docs/demo/
+
+# Qollab package is assembled by qollab/build.sh
+qollab/package/

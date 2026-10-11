@@ -72,7 +72,7 @@ the team's.
 
 - Repository: https://github.com/Riztofu/grover-ocean
 - Demo video (2–3 min, public): **TODO — upload `docs/demo/grovers-ocean-demo.webm` to YouTube/Loom and paste the link**
-- Qollab project: the runnable entry point is `main.py`
+- Qollab project: upload `~/Desktop/Grovers-Ocean-Qollab.zip` (built by `./qollab/build.sh`; ≈100 KB). It is a JS/Qiskit project: the full game runs in the page with Qiskit in Qollab's in-browser Python, and Level 11 casts one job on the Select-QPU backend. `main.py` (text mode) is included as well.
 
 ## Demo-video narration (≈ 2½ minutes)
 

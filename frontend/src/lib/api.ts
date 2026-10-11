@@ -31,7 +31,26 @@ export interface Trajectory {
   numTargets: number;
 }
 
+/**
+ * On Qollab the game runs inside the page with Qiskit in the browser's own
+ * Python: qollab/main.js installs a host here that answers the same API
+ * (see qollab/host.js + qollab/ocean/bridge.py). Locally this is undefined
+ * and every call goes to the FastAPI backend over HTTP.
+ */
+export interface OceanHost {
+  name: string;
+  request: (path: string, body: unknown) => Promise<unknown>;
+}
+declare global {
+  interface Window {
+    groverOceanHost?: OceanHost;
+  }
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
+  if (typeof window !== "undefined" && window.groverOceanHost) {
+    return (await window.groverOceanHost.request(path, body)) as T;
+  }
   const res = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -113,12 +132,59 @@ export async function fetchTrajectory(
 }
 
 export async function backendUp(): Promise<boolean> {
+  if (typeof window !== "undefined" && window.groverOceanHost) return true;
   try {
     const res = await fetch("/api/health");
     return res.ok;
   } catch {
     return false;
   }
+}
+
+// --------------------------------------------------------------------------
+// Qollab only: the backend the judge picked in "Select QPU" (IonQ or local)
+// --------------------------------------------------------------------------
+
+export interface HostBackend {
+  label: string;
+  short: string;
+  ionq: boolean;
+  paid: boolean;
+  noiseModel: string | null;
+  qiskit: string;
+}
+
+/** null when not running on Qollab (the FastAPI backend has no such route). */
+export async function hostBackend(): Promise<HostBackend | null> {
+  if (typeof window === "undefined" || !window.groverOceanHost) return null;
+  try {
+    const raw = (await window.groverOceanHost.request("/api/host", {})) as {
+      label: string;
+      short: string;
+      ionq: boolean;
+      paid: boolean;
+      noise_model: string | null;
+      qiskit: string;
+    };
+    return { label: raw.label, short: raw.short, ionq: raw.ionq, paid: raw.paid, noiseModel: raw.noise_model, qiskit: raw.qiskit };
+  } catch {
+    return null;
+  }
+}
+
+export interface HostRunResult extends SampleResult {
+  backend: string;
+  seconds: number;
+}
+
+/** One measured Grover circuit as ONE job on the Qollab-selected backend. */
+export async function runOnHost(
+  numTiles: number,
+  target: Target,
+  ops: Op[],
+  shots: number
+): Promise<HostRunResult> {
+  return post<HostRunResult>("/api/run-on-backend", { num_tiles: numTiles, target, ops, shots });
 }
 
 /** Ops for k full Grover iterations ("sonar pings") after a spread. */

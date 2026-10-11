@@ -21,10 +21,28 @@ MIT licensed. Everything here was written inside the build window — see
   <img src="docs/screenshots/L11-choppy.png" width="49%" alt="Level 11 — The Real Ocean: tally marks only, won in choppy seas" />
 </p>
 
-## Run it on Qollab / IonQ in one file
+## Run it on Qollab
 
-`main.py` is the whole curriculum condensed into one
-dependency-light Qiskit script — the Qollab-runnable entry point:
+The **whole game runs on Qollab** as a JS/Qiskit project: the React build
+mounts in the page, and `ocean/quantum.py` (a verbatim copy of the backend)
+runs in Qollab's in-browser Python, so every amplitude is still a real
+Qiskit circuit. The boss level's **☁️ Cast on IonQ** button sends one
+measured Grover circuit as one job to the backend chosen in Select QPU.
+
+```bash
+./qollab/build.sh            # builds frontend/ with relative paths and writes
+                             # ~/Desktop/Grovers-Ocean-Qollab.zip (≈100 KB)
+```
+
+Upload that zip as the Qollab project, press **Run**, pick a backend, play.
+Layout: `index.html` + `main.js` (entry) + `host.js` (answers the game's API
+in-page, enforces one IonQ job per Run) + `assets/app.js` + `ocean/`
+(`quantum.py`, `bridge.py`). See `qollab/README.md` — it is the project page.
+
+### …or the text-mode version in one file
+
+`main.py` is the whole curriculum condensed into one dependency-light
+Qiskit script (also included in the Qollab zip):
 
 ```bash
 pip install qiskit numpy qiskit-ionq
@@ -127,10 +145,13 @@ compass angles, multi-fish oracles, the noise model, 64 → 6 and 256 → 12).
 ## Architecture
 
 ```
-main.py            the Qollab-runnable single-file version (press Run): the
-                   whole curriculum in text + ONE Grover job on IonQ's simulator
-qollab/
-  grovers_ocean.py shim that runs main.py
+main.py            the text-mode single-file version: the whole curriculum
+                   in text + ONE Grover job on IonQ's simulator (qiskit-ionq)
+qollab/            the Qollab project (JS/Qiskit): build.sh assembles the zip
+  index.html, main.js, host.js   page, entry, in-page API host
+  ocean/bridge.py  JSON bridge → quantum.py in Qollab's in-browser Python;
+                   one-job casts on the Select-QPU backend
+  README.md        the Qollab project page
 docs/
   screenshots/     the four Act III levels
   demo/            (local only, git-ignored) the demo-video recording;
