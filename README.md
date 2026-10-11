@@ -23,14 +23,14 @@ MIT licensed. Everything here was written inside the build window — see
 
 ## Run it on Qollab / IonQ in one file
 
-`qollab/grovers_ocean.py` is the whole curriculum condensed into one
+`main.py` is the whole curriculum condensed into one
 dependency-light Qiskit script — the Qollab-runnable entry point:
 
 ```bash
 pip install qiskit numpy qiskit-ionq
 export IONQ_API_KEY=...          # optional; Qollab provides it. Omit for local sampling.
 export IONQ_NOISE_MODEL=aria-1   # optional: cast the net through a real device noise model
-python qollab/grovers_ocean.py
+python main.py
 ```
 
 It prints the three spells as an amplitude chart, the "don't overwind" ping
@@ -127,9 +127,10 @@ compass angles, multi-fish oracles, the noise model, 64 → 6 and 256 → 12).
 ## Architecture
 
 ```
+main.py            the Qollab-runnable single-file version (press Run): the
+                   whole curriculum in text + ONE Grover job on IonQ's simulator
 qollab/
-  grovers_ocean.py the Qollab-runnable single-file version: the whole
-                   curriculum in text + ONE Grover job on IonQ's simulator
+  grovers_ocean.py shim that runs main.py
 docs/
   screenshots/     the four Act III levels
   demo/            the demo-video recording (see SUBMISSION.md)

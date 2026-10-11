@@ -32,7 +32,7 @@ noise model that drags the sweet spot earlier.
 The frontend computes zero quantum math. A FastAPI backend builds every
 circuit in Qiskit, computes exact statevectors, and samples honest shots.
 "Under the hood" shows the live circuit diagram on every level. The
-Qollab-runnable script (`qollab/grovers_ocean.py`) condenses the whole
+Qollab-runnable script (`main.py`) condenses the whole
 curriculum into one file and ends by submitting one measured Grover circuit
 as one job to IonQ's simulator — optionally through a real device noise
 model.
@@ -72,7 +72,7 @@ the team's.
 
 - Repository: https://github.com/Riztofu/grover-ocean
 - Demo video (2–3 min, public): **TODO — upload `docs/demo/grovers-ocean-demo.mp4` to YouTube/Loom and paste the link**
-- Qollab project: the runnable entry point is `qollab/grovers_ocean.py`
+- Qollab project: the runnable entry point is `main.py`
 
 ## Demo-video narration (≈ 2½ minutes)
 
