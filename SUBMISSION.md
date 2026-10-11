@@ -71,7 +71,7 @@ the team's.
 ## Links to fill in
 
 - Repository: https://github.com/Riztofu/grover-ocean
-- Demo video (2–3 min, public): **TODO — upload `docs/demo/grovers-ocean-demo.mp4` to YouTube/Loom and paste the link**
+- Demo video (2–3 min, public): **TODO — upload `docs/demo/grovers-ocean-demo.webm` to YouTube/Loom and paste the link**
 - Qollab project: the runnable entry point is `main.py`
 
 ## Demo-video narration (≈ 2½ minutes)

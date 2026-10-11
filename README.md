@@ -133,7 +133,8 @@ qollab/
   grovers_ocean.py shim that runs main.py
 docs/
   screenshots/     the four Act III levels
-  demo/            the demo-video recording (see SUBMISSION.md)
+  demo/            (local only, git-ignored) the demo-video recording;
+                   the public link lives in SUBMISSION.md
 
 backend/
   quantum.py       the ENTIRE quantum side — one small circuit family, plus:
