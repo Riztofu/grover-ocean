@@ -16,10 +16,14 @@ interface Props {
   amplitudes: number[] | null;
   view: ChartView;
   highlight?: number | null;
+  /** several highlighted bars at once (a school of fish, Level 10) */
+  highlights?: number[];
   /** draw a dashed line at the average amplitude (amplitude view only) */
   showMean?: boolean;
   /** Level 4: draggable prediction bars */
   ghost?: GhostControl;
+  /** how many bars to draw when there is no state yet */
+  emptyBars?: number;
 }
 
 const W = 680;
@@ -30,18 +34,21 @@ export default function AmplitudeChart({
   amplitudes,
   view,
   highlight = null,
+  highlights,
   showMean = false,
   ghost,
+  emptyBars = 16,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef<"ordinary" | "marked" | null>(null);
 
-  const n = amplitudes?.length ?? 16;
+  const n = amplitudes?.length ?? emptyBars;
   const values = amplitudes
     ? view === "amplitude"
       ? amplitudes
       : amplitudes.map((a) => a * a)
     : new Array(n).fill(0);
+  const isHighlighted = (i: number) => i === highlight || (highlights?.includes(i) ?? false);
 
   // y-axis domain
   const maxAbs = Math.max(0.3, ...values.map((v) => Math.abs(v)), ...(ghost ? [Math.abs(ghost.ordinary), Math.abs(ghost.marked)] : []));
@@ -54,6 +61,10 @@ export default function AmplitudeChart({
   const valOf = (y: number) => yMax - ((y - PAD.top) / plotH) * (yMax - yMin);
   const barW = plotW / n;
   const xOf = (i: number) => PAD.left + i * barW;
+  // big oceans: thinner gaps so 256 bars still read as a solid skyline
+  const inset = n <= 16 ? 0.12 : n <= 64 ? 0.15 : 0.05;
+  // and only label every so-many bars
+  const labelEvery = n <= 16 ? 1 : n <= 64 ? 4 : 16;
 
   const zeroY = yOf(0);
   const mean = amplitudes ? amplitudes.reduce((s, a) => s + a, 0) / n : 0;
@@ -115,18 +126,18 @@ export default function AmplitudeChart({
       {values.map((v, i) => {
         const top = Math.min(yOf(v), zeroY);
         const h = Math.abs(yOf(v) - zeroY);
-        const isHl = i === highlight;
+        const isHl = isHighlighted(i);
         const fill =
           v < 0 ? "#f59e9e" : isHl ? "#ffd166" : "#3fc1c9";
         return (
           <rect
             key={i}
             className="amp-bar"
-            x={xOf(i) + barW * 0.12}
-            width={barW * 0.76}
+            x={xOf(i) + barW * inset}
+            width={barW * (1 - 2 * inset)}
             y={top}
             height={Math.max(h, 0.5)}
-            rx={3}
+            rx={n <= 64 ? 3 : 0}
             fill={fill}
             opacity={isHl ? 1 : 0.88}
           />
@@ -200,19 +211,26 @@ export default function AmplitudeChart({
         </>
       )}
 
-      {/* x labels */}
-      {values.map((_, i) => (
-        <text
-          key={`x${i}`}
-          x={xOf(i) + barW / 2}
-          y={H - 10}
-          textAnchor="middle"
-          fontSize={10}
-          fill={i === highlight ? "#ffd166" : "#7fb8d4"}
-        >
-          {i}
-        </text>
-      ))}
+      {/* x labels — highlighted bars always get one; regular labels step aside for them */}
+      {values.map((_, i) =>
+        isHighlighted(i) ||
+        (i % labelEvery === 0 &&
+          !(highlights ?? (highlight !== null ? [highlight] : [])).some(
+            (h) => h !== i && Math.abs(h - i) < labelEvery / 2
+          )) ? (
+          <text
+            key={`x${i}`}
+            x={xOf(i) + barW / 2}
+            y={H - 10}
+            textAnchor="middle"
+            fontSize={10}
+            fontWeight={isHighlighted(i) ? 700 : 400}
+            fill={isHighlighted(i) ? "#ffd166" : "#7fb8d4"}
+          >
+            {i}
+          </text>
+        ) : null
+      )}
     </svg>
   );
 }

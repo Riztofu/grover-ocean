@@ -3,6 +3,9 @@
 
 export type Op = "spread" | "mark" | "mirror";
 
+/** One fish (a tile index) or a whole school (Level 10). */
+export type Target = number | number[];
+
 export interface QuantumState {
   amplitudes: number[];
   probabilities: number[];
@@ -13,6 +16,19 @@ export interface QuantumState {
 export interface SampleResult {
   counts: Record<string, number>;
   shots: number;
+}
+
+/** Levels 8-10: P(catch) and the Grover compass angle after 0..maxPings pings. */
+export interface Trajectory {
+  /** probabilities[k] = chance of catching a fish after k pings */
+  probabilities: number[];
+  /** angles[k] = the state's angle (degrees) from the "everything else" axis */
+  angles: number[];
+  /** the half-step: sin θ = √(M/N); each ping rotates by 2θ */
+  thetaDeg: number;
+  /** the k that maximizes probabilities[k] */
+  bestPings: number;
+  numTargets: number;
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -30,7 +46,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export async function fetchState(
   numTiles: number,
-  target: number,
+  target: Target,
   ops: Op[]
 ): Promise<QuantumState> {
   const raw = await post<{
@@ -49,26 +65,51 @@ export async function fetchState(
 
 export async function fetchSample(
   numTiles: number,
-  target: number,
+  target: Target,
   ops: Op[],
-  shots = 1
+  shots = 1,
+  noise = 0
 ): Promise<SampleResult> {
   return post<SampleResult>("/api/sample", {
     num_tiles: numTiles,
     target,
     ops,
     shots,
+    noise,
   });
 }
 
 /** Draw a single measurement outcome (one "net cast"). */
 export async function castNet(
   numTiles: number,
-  target: number,
-  ops: Op[]
+  target: Target,
+  ops: Op[],
+  noise = 0
 ): Promise<number> {
-  const r = await fetchSample(numTiles, target, ops, 1);
+  const r = await fetchSample(numTiles, target, ops, 1, noise);
   return Number(Object.keys(r.counts)[0]);
+}
+
+export async function fetchTrajectory(
+  numTiles: number,
+  target: Target,
+  maxPings: number,
+  noise = 0
+): Promise<Trajectory> {
+  const raw = await post<{
+    probabilities: number[];
+    angles: number[];
+    theta_deg: number;
+    best_pings: number;
+    num_targets: number;
+  }>("/api/trajectory", { num_tiles: numTiles, target, max_pings: maxPings, noise });
+  return {
+    probabilities: raw.probabilities,
+    angles: raw.angles,
+    thetaDeg: raw.theta_deg,
+    bestPings: raw.best_pings,
+    numTargets: raw.num_targets,
+  };
 }
 
 export async function backendUp(): Promise<boolean> {
@@ -85,6 +126,11 @@ export function pingOps(k: number): Op[] {
   const ops: Op[] = ["spread"];
   for (let i = 0; i < k; i++) ops.push("mark", "mirror");
   return ops;
+}
+
+/** Is this tile one of the fish? */
+export function isTarget(target: Target, tile: number): boolean {
+  return Array.isArray(target) ? target.includes(tile) : target === tile;
 }
 
 // --------------------------------------------------------------------------

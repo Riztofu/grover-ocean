@@ -26,6 +26,14 @@ const GLOSSARY: Record<string, string> = {
     "The basic building block of a quantum circuit — like AND/OR/NOT in digital logic, but for qubits. This game's bench has four: X (flip a bit), H (spread into a mix), Z (flip the sign where a wire reads 1), and CZ (flip the sign only where BOTH wires read 1). Chains of simple gates are all any quantum algorithm is.",
   "no-cloning theorem":
     "A proven law of quantum mechanics: there is no circuit that copies an unknown qubit. That's why quantum circuits look like parallel rails instead of branching wires — a wire can never fan out, because fanning out IS copying.",
+  overwinding:
+    "Running too many Grover iterations. Each ping rotates the state by the same fixed angle toward the answer; once it's pointing straight at the answer, the next ping rotates it right past. The catch chance falls, hits ~0, and comes back around like a clock. The fix is knowing when to stop: about (π/4)·√(N/M) pings.",
+  "√N scaling":
+    "How the cost of quantum search grows with the size N of the search space: like the square root of N. Quadruple the haystack and you only need double the pings. Blind classical search grows like N itself — so the bigger the problem, the bigger quantum's advantage. (It's a quadratic speedup, not an exponential one — honest marketing matters.)",
+  shot:
+    "One complete run of a quantum circuit followed by one measurement. Real quantum hardware gives you nothing but shots: no amplitudes, no probabilities, just a list of outcomes. You estimate the output distribution by repeating shots and counting.",
+  noise:
+    "Imperfections in real quantum hardware that scramble the state a little with every gate. This game models it honestly as a depolarizing channel: after each ping, with some probability the whole register is replaced by pure randomness. It compounds — more pings, more rot — which is why real machines favour short circuits.",
 };
 
 export function Term({ t, children }: { t: string; children?: ReactNode }) {

@@ -2,7 +2,9 @@
 
 **A playable curriculum for Grover's quantum search algorithm.** Each level
 isolates one conceptual ingredient; by Level 5 the player has assembled the
-whole algorithm themselves out of spells they understand.
+whole algorithm themselves out of spells they understand, by Level 7 they
+have forged those spells from raw gates, and by Level 11 they have landed a
+fish on a noisy machine with nothing but measurement tallies.
 
 Built for the **Quantum Unlocked** track ("teach a hard topic through a demo,
 visualization, or GUI") at the Qollab × IonQ quantum hackathon.
@@ -11,18 +13,22 @@ visualization, or GUI") at the Qollab × IonQ quantum hackathon.
 
 **Every amplitude on screen comes from a real Qiskit circuit.** The frontend
 computes zero quantum math. Each "spell" is a genuine sub-circuit
-(`backend/quantum.py`, ~100 lines including comments):
+(`backend/quantum.py`):
 
 - 🌊 **spread** — Hadamard on every qubit (equal superposition)
 - ✒️ **mark** — the oracle: multi-controlled Z that flips the target's sign
+  (one per fish, when there are several)
 - 🪞 **mirror** — the diffusion operator: reflection about the mean
 
 Open **"Under the hood"** on any level to see the live Qiskit circuit diagram
 for exactly the state on screen. Measurements ("casting the net") are honest
 shots sampled from the circuit's true output distribution — no JavaScript
-pretending.
+pretending. The Grover compass (Levels 8–10) reads its angle straight off the
+statevector, and the boss level's noise is a real depolarizing channel.
 
-## The levels (1–5 = the complete conceptual arc; 6–7 = the player takes the wheel)
+## The levels — three acts
+
+### Act I · Learn (1–5): the complete conceptual arc
 
 | # | Level | The one idea it teaches |
 |---|-------|------------------------|
@@ -31,19 +37,28 @@ pretending.
 | 3 | Invisible Ink | The oracle flips the target's sign — and measurement can't see it. Kills the "checks everything at once" myth. |
 | 4 | The Mirror | Diffusion = reflect across the average. Player *predicts* the reflection by dragging ghost bars before the reveal. |
 | 5 | Ping! | mark + mirror = one Grover iteration. Player hunts a fish with sonar pings; ~3 pings beat ~8 classical flips. |
+
+### Act II · Build (6–7): the player takes the wheel
+
+| # | Level | The one idea it teaches |
+|---|-------|------------------------|
 | 6 | Qubit Complete | Free build at the spell level: no recipe, just the three spells and a goal. The player *reinvents* Grover's chain themselves. |
 | 7 | The Spellsmith | Free build at the **gate** level: forge spread/mark/mirror out of raw H, X, Z, CZ gates on a 2-wire bench, then hunt with circuits built entirely by hand. mark and mirror are verified as **full unitaries** server-side — any correct construction passes, and a build that only works on one ocean doesn't. On 4 shells, one hand-built ping = a guaranteed catch. |
 
+### Act III · Master (8–11): the dial, the scaling, the real world
+
+| # | Level | The one idea it teaches |
+|---|-------|------------------------|
+| 8 | Don't Overwind | More pings is **not** more better. The fish is visible; the player pings past the peak and watches 96% → 58% → 2%. Two new instruments: the **Grover compass** (each ping = a fixed rotation by 2θ; catch = sin² of the angle) and the **ping curve**. Then a challenge: fresh hidden fish, set the dial, ONE net. |
+| 9 | Bigger Oceans | Discover √N by hand: find the sweet spot for 64 and 256 tiles (6 and 12 pings), overlay the curves, read the scoreboard against classical N/2. 4× the tiles → 2× the pings. |
+| 10 | Two Fish | More right answers need *fewer* pings: the oracle marks every fish, the compass starts higher (sin θ = √(M/N)). Two fish peak at 2 pings; a school of four peaks at exactly 1 — with a certain catch. |
+| 11 | The Real Ocean (boss) | Training wheels off: no heatmap, no chart, no compass. 64 tiles, hidden fish, a shot budget, tally marks only. Win in calm seas, then again in **choppy seas** — a depolarizing channel rots 8% of the signal per ping, which drags the sweet spot from 6 pings to ~5 and the peak from 99.7% to ~64%. |
+
 Each level ends with a **field note** collected into a journal — read top to
 bottom, the journal is a complete plain-language explanation of Grover's
-algorithm. The game writes its own textbook as you play.
-
-### Stretch roadmap (in priority order)
-
-8. **Don't Overwind** — success probability peaks at ~3 pings for 16 tiles, then *falls* (it's 58% at 4 pings — the backend already computes this). Compass/rotation visualization.
-9. **Bigger Oceans** — 64 tiles → ~6 pings, not 4×: discover √N scaling. (Backend already supports up to 256 tiles.)
-10. **Two Fish** — multiple targets need *fewer* pings. Oracle change is a few lines.
-11. **The Real Ocean (boss)** — no god's-eye heatmap, only a noisy histogram from limited shots. (`/api/sample` with `shots` already does this.)
+algorithm, including when to stop, how it scales, what multiple answers do,
+and what real hardware actually hands you. The game writes its own textbook
+as you play.
 
 ## Run it
 
@@ -73,34 +88,61 @@ Or just run `./dev.sh` from the repo root once dependencies are installed.
 cd backend && python test_quantum.py
 ```
 
-Expected: after 1 ping P(target) ≈ 0.47, after 2 ≈ 0.91, after 3 ≈ 0.96
-(the sweet spot), after 4 ≈ 0.58 (overwound — Level 6 material).
+Three test groups: the spell math (P(target) after 1/2/3/4 pings ≈ 0.47 /
+0.91 / 0.96 / 0.58), the Level 7 workbench verifier, and the stretch levels
+(the fast evaluator against Qiskit's reference simulator, ping curves and
+compass angles, multi-fish oracles, the noise model, 64 → 6 and 256 → 12).
 
 ## Architecture
 
 ```
 backend/
-  quantum.py       the ENTIRE quantum side — one small circuit family
-  main.py          FastAPI: POST /api/state (amplitudes, probabilities,
-                   circuit diagram), POST /api/sample (honest shots)
-  test_quantum.py  sanity tests for the math
+  quantum.py       the ENTIRE quantum side — one small circuit family, plus:
+                   an exact fast evaluator (mcx applied as its permutation
+                   matrix, verified identical to Qiskit's simulator — 256-tile
+                   oceans in milliseconds), trajectory() for ping curves and
+                   compass angles, noisy_probabilities() for the boss
+  main.py          FastAPI:
+                     POST /api/state       amplitudes, probabilities, diagram
+                     POST /api/sample      honest shots (optional `noise`)
+                     POST /api/trajectory  P(catch) + compass angle for 0..k pings
+                     POST /api/bench       Level 7 gate-bench run + verify
+  test_quantum.py  sanity tests for all of the above
 
 frontend/          React + Vite + TypeScript + Tailwind
   src/lib/api.ts             backend client (no quantum math in JS!)
-  src/lib/levels.ts          level metadata + journal field notes
+  src/lib/levels.ts          level metadata, acts, journal field notes
   src/components/
     AmplitudeChart.tsx       the game's central instrument (amplitude ⇄
                              probability toggle, mean line, draggable
-                             ghost-bar predictions for Level 4)
-    OceanGrid.tsx            shells / heatmap grid
+                             ghost-bar predictions, 256-bar skylines)
+    OceanGrid.tsx            shells / heatmap grid; compact for 64–256
+                             tiles; tally-mark mode for the boss
+    GroverCompass.tsx        the 2-D rotation picture of Grover's algorithm
+    PingCurve.tsx            P(catch) vs pings, overlayable, reveal-as-you-go
+    CircuitBench.tsx         Level 7's 2-wire gate workbench
     Journal.tsx              collected field notes
     UnderTheHood.tsx         live Qiskit circuit diagram panel
+    Guide.tsx                Coral the crab + the tap-a-word glossary
     LevelFrame.tsx           shared level chrome + field-note flow
-  src/levels/Level1–5.tsx    one file per level
+  src/levels/Level1–11.tsx   one file per level
 ```
 
 A note on phases, for the curious: Grover keeps the statevector real, but
 standard gate decompositions add an unobservable global phase. The backend
 canonicalizes it so the average amplitude is positive, which makes the bars
 match the textbook picture. Probabilities are unaffected (see the docstring
-in `quantum.py`).
+in `quantum.py`). The compass angle is likewise only defined modulo 180°
+(|ψ⟩ and −|ψ⟩ are the same state); the backend unwraps it so the needle
+sweeps smoothly past vertical instead of snapping back.
+
+## Ideas for a sequel
+
+- **Unknown M**: when you don't know how many fish there are, run with a
+  random ping count — it still works in O(√N) expected time. A level where
+  the school size is hidden.
+- **Amplitude amplification**: replace the spread with any state-prep
+  circuit the player builds on the bench, and show that the same mark/mirror
+  machinery still works.
+- **Real hardware**: the API already speaks in ops and shots; swapping the
+  sampler for an IonQ backend is a few lines in `sample()`.

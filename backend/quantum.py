@@ -7,6 +7,10 @@ Every "spell" in the game is a real Qiskit sub-circuit:
   - "mark"   = the oracle               -> flips the SIGN of the target's amplitude
   - "mirror" = the diffusion operator   -> reflects every amplitude across the average
 
+Oceans may hold several fish at once (Level 10): the oracle then flips the
+sign of every target. The ping-curve levels (8-10) use `trajectory()`, and
+the boss level (11) adds an honest noise model — see `noisy_probabilities()`.
+
 The frontend never fakes any quantum math: it sends a list of ops,
 and this module builds the circuit, computes the exact statevector,
 and (for measurements) samples real shots from it.
@@ -21,25 +25,42 @@ after the mark). Probabilities are completely unaffected by this choice.
 
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit.quantum_info import Statevector
+from qiskit.quantum_info import Operator, Statevector
 
 VALID_OPS = ("spread", "mark", "mirror")
 MAX_TILES = 256  # 8 qubits is plenty for the game
+MAX_TARGETS = 8
+MAX_PINGS = 32  # longest ping curve we will compute
 
 
-def _validate(num_tiles: int, target: int, ops: list[str]) -> int:
+def _targets(target) -> list[int]:
+    """Normalize a target spec (one index or a list of indices) to a sorted list."""
+    if isinstance(target, (int, np.integer)) and not isinstance(target, bool):
+        return [int(target)]
+    if not isinstance(target, (list, tuple)):
+        raise ValueError("target must be an index or a list of indices")
+    out = sorted({int(t) for t in target})
+    if not out:
+        raise ValueError("at least one target is required")
+    if len(out) > MAX_TARGETS:
+        raise ValueError(f"at most {MAX_TARGETS} targets")
+    return out
+
+
+def _validate(num_tiles: int, target, ops: list[str]) -> int:
     """Validate a request and return the number of qubits."""
     if num_tiles < 4 or num_tiles > MAX_TILES:
         raise ValueError(f"num_tiles must be between 4 and {MAX_TILES}")
     n = int(np.log2(num_tiles))
     if 2**n != num_tiles:
         raise ValueError("num_tiles must be a power of 2")
-    if not (0 <= target < num_tiles):
-        raise ValueError("target must be a valid tile index")
+    for t in _targets(target):
+        if not (0 <= t < num_tiles):
+            raise ValueError("target must be a valid tile index")
     for op in ops:
         if op not in VALID_OPS:
             raise ValueError(f"unknown op {op!r}; valid ops are {VALID_OPS}")
-    if len(ops) > 64:
+    if len(ops) > 2 * MAX_PINGS + 1:
         raise ValueError("too many ops")
     return n
 
@@ -73,24 +94,76 @@ def _diffusion(qc: QuantumCircuit, n: int) -> None:
     qc.h(range(n))
 
 
-def build_circuit(num_tiles: int, target: int, ops: list[str]) -> QuantumCircuit:
-    """Build the circuit for a sequence of game ops."""
+def build_circuit(num_tiles: int, target, ops: list[str]) -> QuantumCircuit:
+    """Build the circuit for a sequence of game ops.
+
+    `target` is one tile index or a list of them. With several fish the
+    oracle is one multi-controlled Z per fish — they all commute, so the
+    order is irrelevant and the net effect is "flip the sign of every fish".
+    """
     n = _validate(num_tiles, target, ops)
+    targets = _targets(target)
     qc = QuantumCircuit(n)
     for op in ops:
         if op == "spread":
             qc.h(range(n))
         elif op == "mark":
-            _oracle(qc, n, target)
+            for t in targets:
+                _oracle(qc, n, t)
         elif op == "mirror":
             _diffusion(qc, n)
         qc.barrier()
     return qc
 
 
-def real_amplitudes(qc: QuantumCircuit) -> np.ndarray:
-    """Exact statevector as real amplitudes (global phase canonicalized)."""
-    vec = Statevector.from_instruction(qc).data
+# ---------------------------------------------------------------------------
+# Exact simulation.
+#
+# Qiskit's generic simulator expands a multi-controlled X into hundreds of
+# elementary gates for 8 qubits, which made 256-tile oceans crawl (~0.5 s per
+# circuit). The mcx matrix is just a permutation — swap the last two basis
+# states — so we apply it directly. Same gate, same diagram, same numbers;
+# only faster. Every other gate is applied via its own exact matrix.
+# ---------------------------------------------------------------------------
+
+_MCX_CACHE: dict[int, Operator] = {}
+
+
+def _mcx_operator(k: int) -> Operator:
+    """The exact matrix of a k-qubit multi-controlled X (k-1 controls, 1 target).
+
+    Qiskit is little-endian: qargs[0] is the lowest bit of the basis index and
+    the target (qargs[-1]) is the highest. "All controls on" picks out the two
+    basis states whose low k-1 bits are all 1 — indices d/2-1 (target 0) and
+    d-1 (target 1) — and the gate swaps exactly those two.
+    """
+    if k not in _MCX_CACHE:
+        d = 2**k
+        m = np.eye(d)
+        m[[d // 2 - 1, d - 1]] = m[[d - 1, d // 2 - 1]]
+        _MCX_CACHE[k] = Operator(m)
+    return _MCX_CACHE[k]
+
+
+def _evolve(sv: Statevector, qc: QuantumCircuit) -> Statevector:
+    """Apply every gate of `qc` to `sv`, exactly."""
+    for inst in qc.data:
+        op = inst.operation
+        if op.name == "barrier":
+            continue
+        qargs = [qc.find_bit(q).index for q in inst.qubits]
+        mat = _mcx_operator(len(qargs)) if op.name == "mcx" else Operator(op.to_matrix())
+        sv = sv.evolve(mat, qargs=qargs)
+    return sv
+
+
+def statevector(qc: QuantumCircuit) -> np.ndarray:
+    """Exact final statevector of `qc` starting from |0...0>."""
+    return _evolve(Statevector.from_int(0, 2**qc.num_qubits), qc).data
+
+
+def _canonical_real(vec: np.ndarray) -> np.ndarray:
+    """Divide out the global phase so the average amplitude is positive; return reals."""
     s = vec.sum()
     if abs(s) > 1e-9:
         phase = s / abs(s)
@@ -103,7 +176,12 @@ def real_amplitudes(qc: QuantumCircuit) -> np.ndarray:
     return vec.real
 
 
-def state(num_tiles: int, target: int, ops: list[str]) -> dict:
+def real_amplitudes(qc: QuantumCircuit) -> np.ndarray:
+    """Exact statevector as real amplitudes (global phase canonicalized)."""
+    return _canonical_real(statevector(qc))
+
+
+def state(num_tiles: int, target, ops: list[str]) -> dict:
     """Amplitudes, probabilities and the circuit diagram for a sequence of ops."""
     qc = build_circuit(num_tiles, target, ops)
     amps = real_amplitudes(qc)
@@ -115,18 +193,107 @@ def state(num_tiles: int, target: int, ops: list[str]) -> dict:
     }
 
 
-def sample(num_tiles: int, target: int, ops: list[str], shots: int) -> dict:
-    """Sample measurement outcomes (shots) from the circuit's true distribution."""
+def noisy_probabilities(probs: np.ndarray, pings: int, noise: float) -> np.ndarray:
+    """Output distribution after a global depolarizing channel per ping.
+
+    This is the textbook noise model, not a fudge: after every Grover
+    iteration, with probability `noise` the register is replaced by the
+    maximally mixed state (every tile equally likely). After k pings the
+    circuit's ideal distribution survives with probability (1-noise)^k and
+    the rest is uniform. More pings = more amplification AND more rot — so
+    on a noisy machine the sweet spot moves earlier and gets lower.
+    """
+    if not (0.0 <= noise <= 1.0):
+        raise ValueError("noise must be between 0 and 1")
+    if noise == 0.0 or pings == 0:
+        return probs
+    keep = (1.0 - noise) ** pings
+    return keep * probs + (1.0 - keep) / len(probs)
+
+
+def sample(num_tiles: int, target, ops: list[str], shots: int, noise: float = 0.0) -> dict:
+    """Sample measurement outcomes (shots) from the circuit's true distribution.
+
+    `noise` > 0 applies the depolarizing model in `noisy_probabilities`
+    once per completed ping (i.e. per "mirror") — the boss level's choppy sea.
+    """
     if not (1 <= shots <= 10000):
         raise ValueError("shots must be between 1 and 10000")
     qc = build_circuit(num_tiles, target, ops)
     probs = real_amplitudes(qc) ** 2
     probs = probs / probs.sum()  # guard against float drift
+    probs = noisy_probabilities(probs, ops.count("mirror"), noise)
     rng = np.random.default_rng()
     counts = rng.multinomial(shots, probs)
     return {
         "counts": {int(i): int(c) for i, c in enumerate(counts) if c > 0},
         "shots": shots,
+    }
+
+
+def trajectory(num_tiles: int, target, max_pings: int, noise: float = 0.0) -> dict:
+    """P(catch) and the Grover compass angle after 0, 1, ..., max_pings pings.
+
+    Computed by evolving ONE statevector through the real circuit and taking
+    a snapshot after every mirror — so a 20-ping curve costs one simulation,
+    not twenty. Used by Levels 8-10 to draw the "don't overwind" curve.
+
+    The compass angle is the textbook two-dimensional picture of Grover's
+    algorithm: the state always lives in the plane spanned by |fish> (the
+    equal mix of all targets) and |rest> (the equal mix of everything else).
+    Each ping rotates it by a fixed 2θ, where sin θ = sqrt(M/N). We read the
+    angle straight off the amplitudes — atan2(fish component, rest component)
+    — so it is derived from the circuit, not from the formula.
+    """
+    if not (0 <= max_pings <= MAX_PINGS):
+        raise ValueError(f"max_pings must be between 0 and {MAX_PINGS}")
+    n = _validate(num_tiles, target, [])
+    targets = _targets(target)
+    m = len(targets)
+    mask = np.zeros(num_tiles, dtype=bool)
+    mask[targets] = True
+
+    def snapshot(vec: np.ndarray, pings: int) -> tuple[float, float]:
+        amps = _canonical_real(vec)
+        fish_sign = -1.0 if np.all(amps[mask] <= 1e-12) and np.any(amps[mask] < 0) else 1.0
+        rest_sign = -1.0 if np.all(amps[~mask] <= 1e-12) and np.any(amps[~mask] < 0) else 1.0
+        fish = fish_sign * float(np.sqrt(np.sum(amps[mask] ** 2)))
+        rest = rest_sign * float(np.sqrt(np.sum(amps[~mask] ** 2)))
+        probs = noisy_probabilities(amps**2, pings, noise)
+        return float(np.sum(probs[mask])), float(np.degrees(np.arctan2(fish, rest)))
+
+    spread = QuantumCircuit(n)
+    spread.h(range(n))
+    ping = QuantumCircuit(n)
+    for t in targets:
+        _oracle(ping, n, t)
+    _diffusion(ping, n)
+
+    theta = float(np.degrees(np.arcsin(np.sqrt(m / num_tiles))))
+
+    sv = _evolve(Statevector.from_int(0, num_tiles), spread)
+    probs, angles = [], []
+    p, a = snapshot(sv.data, 0)
+    probs.append(p)
+    angles.append(a)
+    for k in range(1, max_pings + 1):
+        sv = _evolve(sv, ping)
+        p, a = snapshot(sv.data, k)
+        # |ψ> and -|ψ> are the same state, so the measured angle is only
+        # defined modulo 180°. Pick the representative that continues the
+        # rotation smoothly (each ping turns the needle by 2θ) so the
+        # compass sweeps past 90° instead of snapping back.
+        expected = angles[-1] + 2 * theta
+        a += 180.0 * round((expected - a) / 180.0)
+        probs.append(p)
+        angles.append(a)
+
+    return {
+        "probabilities": probs,
+        "angles": angles,
+        "theta_deg": theta,
+        "best_pings": int(np.argmax(probs)),
+        "num_targets": m,
     }
 
 
@@ -147,8 +314,6 @@ def sample(num_tiles: int, target: int, ops: list[str], shots: int) -> dict:
 #                 correct construction passes — including ones we never
 #                 thought of.
 # ---------------------------------------------------------------------------
-
-from qiskit.quantum_info import Operator
 
 BENCH_QUBITS = 2  # 4 shells — big enough to be real, small enough to wire by hand
 BENCH_MAX_COLS = 24  # generous: the final hunt chains three builds together
