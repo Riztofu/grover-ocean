@@ -7,7 +7,38 @@ have forged those spells from raw gates, and by Level 11 they have landed a
 fish on a noisy machine with nothing but measurement tallies.
 
 Built for the **Quantum Unlocked** track ("teach a hard topic through a demo,
-visualization, or GUI") at the Qollab × IonQ quantum hackathon.
+visualization, or GUI") at the Qollab × IonQ quantum hackathon, Oct 9–11 2026.
+MIT licensed. Everything here was written inside the build window — see
+[Hackathon notes](#hackathon-notes) for the disclosure and
+[`SUBMISSION.md`](SUBMISSION.md) for the submission text and video narration.
+
+<p align="center">
+  <img src="docs/screenshots/L8-overwound.png" width="49%" alt="Level 8 — Don't Overwind: the Grover compass and the ping curve after six pings" />
+  <img src="docs/screenshots/L9.png" width="49%" alt="Level 9 — Bigger Oceans: overlaid ping curves and the √N scoreboard" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/L10.png" width="49%" alt="Level 10 — Two Fish: a school of four is a certain catch in one ping" />
+  <img src="docs/screenshots/L11-choppy.png" width="49%" alt="Level 11 — The Real Ocean: tally marks only, won in choppy seas" />
+</p>
+
+## Run it on Qollab / IonQ in one file
+
+`qollab/grovers_ocean.py` is the whole curriculum condensed into one
+dependency-light Qiskit script — the Qollab-runnable entry point:
+
+```bash
+pip install qiskit numpy qiskit-ionq
+export IONQ_API_KEY=...          # optional; Qollab provides it. Omit for local sampling.
+export IONQ_NOISE_MODEL=aria-1   # optional: cast the net through a real device noise model
+python qollab/grovers_ocean.py
+```
+
+It prints the three spells as an amplitude chart, the "don't overwind" ping
+curve, the √N table and the two-fish result, then builds **one measured
+Grover circuit** and submits it as **one job** to the IonQ simulator
+(`ionq_simulator` via qiskit-ionq), tallies the shots and declares the
+catch. Without a key it samples locally from the exact distribution and
+says so — it never fakes a result.
 
 ## The one thing to tell skeptical judges
 
@@ -96,6 +127,13 @@ compass angles, multi-fish oracles, the noise model, 64 → 6 and 256 → 12).
 ## Architecture
 
 ```
+qollab/
+  grovers_ocean.py the Qollab-runnable single-file version: the whole
+                   curriculum in text + ONE Grover job on IonQ's simulator
+docs/
+  screenshots/     the four Act III levels
+  demo/            the demo-video recording (see SUBMISSION.md)
+
 backend/
   quantum.py       the ENTIRE quantum side — one small circuit family, plus:
                    an exact fast evaluator (mcx applied as its permutation
@@ -135,6 +173,33 @@ match the textbook picture. Probabilities are unaffected (see the docstring
 in `quantum.py`). The compass angle is likewise only defined modulo 180°
 (|ψ⟩ and −|ψ⟩ are the same state); the backend unwraps it so the needle
 sweeps smoothly past vertical instead of snapping back.
+
+## Hackathon notes
+
+**Track:** Quantum Unlocked. **License:** MIT (see `LICENSE`). **Runs on:**
+Qiskit locally (exact statevector) and IonQ's simulator via qiskit-ionq,
+one job per run.
+
+**Built during the hackathon / prior work.** All code in this repository
+was written inside the build window (Oct 10–11, 2026 ET; the window opened
+Oct 9, 19:00 ET). Levels 1–7 and the Qiskit backend landed on Oct 10; Act
+III (Levels 8–11), the exact fast evaluator, the trajectory and noise APIs,
+the Qollab/IonQ script and this documentation on Oct 11. There is no prior
+repository, template or tutorial code in it. Dependencies are listed in
+`backend/requirements.txt` and `frontend/package.json`. An AI coding
+assistant (Claude Code) was used as a pair programmer throughout; design,
+verification and testing decisions are the team's.
+
+**What's new here** (versus any textbook Grover demo): the player
+*reinvents* the algorithm rather than watching it; the journal of field
+notes is a textbook the player wrote by playing; a gate-level forge
+verifies player-built spells as full unitaries; the Grover compass and ping
+curve make overwinding and √N scaling tangible; a boss level strips away
+the god's-eye view and adds an honest depolarizing noise model.
+
+**Demo video:** see `SUBMISSION.md` for the link and narration.
+
+**No secrets** are committed; the IonQ key is read from `IONQ_API_KEY`.
 
 ## Ideas for a sequel
 

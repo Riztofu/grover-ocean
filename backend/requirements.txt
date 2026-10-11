@@ -2,3 +2,4 @@ qiskit>=1.2
 fastapi>=0.115
 uvicorn>=0.30
 numpy>=1.26
+qiskit-ionq>=1.1   # optional: real IonQ simulator runs (set IONQ_API_KEY)
