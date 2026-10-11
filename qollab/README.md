@@ -14,7 +14,7 @@ We entered **Quantum Unlocked**. The game teaches Grover's search algorithm end 
 1. Press **Run** and pick a backend in **Select QPU** — the free **Built-in simulator** starts instantly; an **IonQ simulator** lets the last level cast the net on IonQ's cloud. The game loads above the console.
 2. Play from **Level 1**. Each level ends with a 📓 **field note**; the journal of notes is a complete plain-language explanation of Grover's algorithm, written by you playing. Levels unlock in order; progress is kept in your browser.
 3. Open **🔧 Under the hood** on any level to see the live Qiskit circuit whose statevector you are looking at.
-4. In **Level 11 (The Real Ocean)**, press **☁️ Cast on IonQ**: the same expedition is sent as **one job** to the backend you picked, and the real shots land on the tally grid next to the simulated ones. IonQ allows one job per Run — press **Stop**, then **Run**, to cast again.
+4. In **Level 5 (Ping!)** and **Level 11 (The Real Ocean)**, press **☁️ Cast on IonQ**: the exact circuit on screen is sent as **one job** to the backend you picked, and the real shots are tallied next to the simulated ones. IonQ allows one job per Run — press **Stop**, then **Run**, to cast again.
 
 ## The levels
 

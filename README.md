@@ -39,6 +39,20 @@ Layout: `index.html` + `main.js` (entry) + `host.js` (answers the game's API
 in-page, enforces one IonQ job per Run) + `assets/app.js` + `ocean/`
 (`quantum.py`, `bridge.py`). See `qollab/README.md` — it is the project page.
 
+### IonQ in the local game too
+
+```bash
+pip install qiskit-ionq
+export IONQ_API_KEY=...            # your IonQ key
+export IONQ_NOISE_MODEL=aria-1     # optional: a real device's noise model ("choppy sea", for real)
+uvicorn main:app --reload --port 8000
+```
+
+With a key set, Levels 5 and 11 grow a **☁️ Cast on IonQ** button: the exact
+circuit on screen is measured as one job on IonQ's cloud simulator and the
+real shots are tallied next to the game's exact numbers. Without a key the
+button simply isn't there — the game never fakes a hardware result.
+
 ### …or the text-mode version in one file
 
 `main.py` is the whole curriculum condensed into one dependency-light

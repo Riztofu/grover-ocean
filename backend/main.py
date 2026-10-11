@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+import ionq
 import quantum
 
 app = FastAPI(title="Grover's Ocean — quantum backend")
@@ -73,6 +74,34 @@ def get_trajectory(req: TrajectoryRequest) -> dict:
         return quantum.trajectory(req.num_tiles, req.target, req.max_pings, req.noise)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class HostRunRequest(BaseModel):
+    num_tiles: int = Field(default=16)
+    target: int | list[int]
+    ops: list[str] = Field(default_factory=list)
+    shots: int = Field(default=20)
+
+
+@app.post("/api/host")
+def get_host() -> dict:
+    """The real backend behind "☁️ Cast on IonQ" — 404 unless IONQ_API_KEY is set (see ionq.py)."""
+    if not ionq.available():
+        raise HTTPException(status_code=404, detail="IonQ is not configured: set IONQ_API_KEY (pip install qiskit-ionq)")
+    return ionq.describe()
+
+
+@app.post("/api/run-on-backend")
+def run_on_backend(req: HostRunRequest) -> dict:
+    """ONE measured Grover circuit as ONE job on IonQ (simulator by default)."""
+    if not ionq.available():
+        raise HTTPException(status_code=404, detail="IonQ is not configured: set IONQ_API_KEY")
+    try:
+        return ionq.run(req.num_tiles, req.target, req.ops, req.shots)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001 — surface IonQ/auth errors to the game, honestly
+        raise HTTPException(status_code=502, detail=f"IonQ run failed: {type(e).__name__}: {e}")
 
 
 class BenchRequest(BaseModel):

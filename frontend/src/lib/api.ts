@@ -154,11 +154,14 @@ export interface HostBackend {
   qiskit: string;
 }
 
-/** null when not running on Qollab (the FastAPI backend has no such route). */
+/**
+ * The real backend behind "☁️ Cast on IonQ": on Qollab, whatever the judge
+ * picked in Select QPU; locally, IonQ via qiskit-ionq when the backend has
+ * IONQ_API_KEY. null when neither is available (the button then hides).
+ */
 export async function hostBackend(): Promise<HostBackend | null> {
-  if (typeof window === "undefined" || !window.groverOceanHost) return null;
   try {
-    const raw = (await window.groverOceanHost.request("/api/host", {})) as {
+    const raw = (await post("/api/host", {})) as {
       label: string;
       short: string;
       ionq: boolean;

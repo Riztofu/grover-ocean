@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AmplitudeChart, { type ChartView } from "../components/AmplitudeChart";
 import LevelFrame from "../components/LevelFrame";
 import GuideBox, { Do } from "../components/Guide";
+import IonQCast from "../components/IonQCast";
 import OceanGrid from "../components/OceanGrid";
 import UnderTheHood from "../components/UnderTheHood";
 import { castNet, fetchState, pingOps, type QuantumState } from "../lib/api";
@@ -161,7 +162,17 @@ export default function Level5({ noteCollected, onCollectNote, onApiError }: Pro
         <ViewToggle view={view} setView={setView} />
       </div>
 
-      <div className="flex flex-wrap gap-4 items-start">
+      {/* real hardware: the same circuit, measured on IonQ (only when a backend is available) */}
+      <IonQCast
+        numTiles={NUM_TILES}
+        target={fish}
+        ops={pingOps(pings)}
+        shots={20}
+        disabled={pings === 0 || busy}
+        revealTarget={caught || escaped}
+      />
+
+      <div className="flex flex-wrap gap-4 items-start mt-3">
         <div className="flex-1 min-w-[260px]">
           <div className="text-xs text-cyan-200/60 mb-1">
             Ocean heatmap (probability per tile) — training wheels: on real
