@@ -3,14 +3,17 @@
 // computed by Qiskit running in Qollab's in-browser Python (ocean/bridge.py → ocean/quantum.py).
 // The boss level's "cast on …" button sends ONE measured Grover circuit as ONE job to the
 // backend you picked in Select QPU. The game stays live above this console until you press Stop.
+//
+// Imports are static on purpose: Qollab's loader resolves project files for static imports only.
+import './config.js';          // 1. tell the bundle to wait for the host
+import './assets/app.js';      // 2. the game (waits for groverOceanAttachHost)
 import * as bridge from 'ocean.bridge';
 import { createHost } from './host.js';
 
 console.log("🌊 Grover's Ocean is loading Qiskit…");
-window.groverOceanHost = createHost(bridge, backend);
-
-const info = await window.groverOceanHost.request('/api/host', {});
-await import('./assets/app.js');
+const host = createHost(bridge, backend);
+const info = await host.request('/api/host', {});
+window.groverOceanAttachHost(host);   // 3. mount the game, now wired to Qiskit
 
 console.log(`Ready — Qiskit ${info.qiskit}, backend: ${info.label}. Play in the page above.`);
 console.log(info.ionq

@@ -21,7 +21,7 @@ echo "▸ building the game with relative asset paths"
 (cd "$ROOT/frontend" && ./node_modules/.bin/vite build --mode qollab --logLevel warn)
 
 echo "▸ assembling package"
-cp "$ROOT/qollab/index.html" "$ROOT/qollab/main.js" "$ROOT/qollab/host.js" "$PKG/"
+cp "$ROOT/qollab/index.html" "$ROOT/qollab/main.js" "$ROOT/qollab/host.js" "$ROOT/qollab/config.js" "$PKG/"
 cp "$ROOT/qollab/README.md" "$PKG/README.md"
 cp "$ROOT/LICENSE" "$ROOT/main.py" "$PKG/"
 mkdir -p "$PKG/ocean"
