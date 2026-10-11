@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Grover's Ocean</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌊</text></svg>" />
-    <link rel="stylesheet" href="assets/index.css" />
+    <!-- styles arrive via assets/style.js (imported by main.js); a <link> cannot resolve here -->
+    <style>
+      body { margin: 0; background: linear-gradient(180deg, #06283d 0%, #052033 45%, #031a2b 100%); min-height: 100vh; color: #dff6ff; }
+    </style>
   </head>
   <body>
     <!-- The game mounts here once main.js has connected Qiskit (see main.js). -->

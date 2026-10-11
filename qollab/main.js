@@ -6,14 +6,15 @@
 //
 // Imports are static on purpose: Qollab's loader resolves project files for static imports only.
 import './config.js';          // 1. tell the bundle to wait for the host
-import './assets/app.js';      // 2. the game (waits for groverOceanAttachHost)
+import './assets/style.js';    // 2. the stylesheet, injected as a <style> tag (a <link> would 404 here)
+import './assets/app.js';      // 3. the game (waits for groverOceanAttachHost)
 import * as bridge from 'ocean.bridge';
 import { createHost } from './host.js';
 
 console.log("🌊 Grover's Ocean is loading Qiskit…");
 const host = createHost(bridge, backend);
 const info = await host.request('/api/host', {});
-window.groverOceanAttachHost(host);   // 3. mount the game, now wired to Qiskit
+window.groverOceanAttachHost(host);   // 4. mount the game, now wired to Qiskit
 
 console.log(`Ready — Qiskit ${info.qiskit}, backend: ${info.label}. Play in the page above.`);
 console.log(info.ionq
