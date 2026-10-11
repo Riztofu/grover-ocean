@@ -5,3 +5,9 @@ __pycache__/
 *.pyc
 .DS_Store
 *.tsbuildinfo
+
+# demo recording is uploaded separately (YouTube/Drive), not committed
+docs/demo/
+
+# Qollab package is assembled by qollab/build.sh
+qollab/package/

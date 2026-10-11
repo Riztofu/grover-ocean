@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import Journal from "./components/Journal";
 import { backendUp } from "./lib/api";
-import { LEVELS } from "./lib/levels";
+import { ACTS, LEVELS } from "./lib/levels";
 import Level1 from "./levels/Level1";
 import Level2 from "./levels/Level2";
 import Level3 from "./levels/Level3";
@@ -9,6 +9,30 @@ import Level4 from "./levels/Level4";
 import Level5 from "./levels/Level5";
 import Level6 from "./levels/Level6";
 import Level7 from "./levels/Level7";
+import Level8 from "./levels/Level8";
+import Level9 from "./levels/Level9";
+import Level10 from "./levels/Level10";
+import Level11 from "./levels/Level11";
+
+interface LevelProps {
+  noteCollected: boolean;
+  onCollectNote: () => void;
+  onApiError: (e: unknown) => void;
+}
+
+const LEVEL_COMPONENTS: Record<number, ComponentType<LevelProps>> = {
+  1: Level1,
+  2: Level2,
+  3: Level3,
+  4: Level4,
+  5: Level5,
+  6: Level6,
+  7: Level7,
+  8: Level8,
+  9: Level9,
+  10: Level10,
+  11: Level11,
+};
 
 interface Progress {
   collected: number[]; // level ids with field note collected
@@ -66,11 +90,8 @@ export default function App() {
     void backendUp().then(setApiOk);
   }
 
-  const levelProps = (id: number) => ({
-    noteCollected: progress.collected.includes(id),
-    onCollectNote: () => collect(id),
-    onApiError,
-  });
+  const Current = LEVEL_COMPONENTS[current];
+  const allDone = progress.collected.length === LEVELS.length;
 
   return (
     <div className="min-h-screen px-4 py-6">
@@ -92,25 +113,37 @@ export default function App() {
           </button>
         </div>
 
-        <nav className="flex gap-2 mt-4 flex-wrap">
-          {LEVELS.map((lvl) => {
-            const isUnlocked = lvl.id <= unlocked;
-            const done = progress.collected.includes(lvl.id);
-            return (
-              <button
-                key={lvl.id}
-                disabled={!isUnlocked}
-                onClick={() => setCurrent(lvl.id)}
-                className={`rounded-full px-4 py-1.5 text-sm border transition
-                  ${current === lvl.id ? "bg-cyan-400 text-[#06283d] border-cyan-400 font-bold" : ""}
-                  ${current !== lvl.id && isUnlocked ? "border-cyan-700/70 text-cyan-200 hover:bg-cyan-900/50" : ""}
-                  ${!isUnlocked ? "border-cyan-900/50 text-cyan-700 cursor-not-allowed" : ""}`}
+        <nav className="mt-4 space-y-2">
+          {ACTS.map((act) => (
+            <div key={act.title} className="flex gap-2 flex-wrap items-center">
+              <span
+                className="text-[10px] uppercase tracking-wider text-cyan-300/60 font-bold w-24 shrink-0"
+                title={act.blurb}
               >
-                {done ? "✓ " : !isUnlocked ? "🔒 " : ""}
-                {lvl.id}. {lvl.title}
-              </button>
-            );
-          })}
+                {act.title}
+              </span>
+              {act.levels.map((id) => {
+                const lvl = LEVELS.find((l) => l.id === id)!;
+                const isUnlocked = lvl.id <= unlocked;
+                const done = progress.collected.includes(lvl.id);
+                return (
+                  <button
+                    key={lvl.id}
+                    disabled={!isUnlocked}
+                    onClick={() => setCurrent(lvl.id)}
+                    title={lvl.subtitle}
+                    className={`rounded-full px-3.5 py-1.5 text-sm border transition
+                      ${current === lvl.id ? "bg-cyan-400 text-[#06283d] border-cyan-400 font-bold" : ""}
+                      ${current !== lvl.id && isUnlocked ? "border-cyan-700/70 text-cyan-200 hover:bg-cyan-900/50" : ""}
+                      ${!isUnlocked ? "border-cyan-900/50 text-cyan-700 cursor-not-allowed" : ""}`}
+                  >
+                    {done ? "✓ " : !isUnlocked ? "🔒 " : ""}
+                    {lvl.id}. {lvl.title}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {apiOk === false && current >= 2 && (
@@ -133,13 +166,14 @@ export default function App() {
       </header>
 
       <main>
-        {current === 1 && <Level1 {...levelProps(1)} />}
-        {current === 2 && <Level2 {...levelProps(2)} />}
-        {current === 3 && <Level3 {...levelProps(3)} />}
-        {current === 4 && <Level4 {...levelProps(4)} />}
-        {current === 5 && <Level5 {...levelProps(5)} />}
-        {current === 6 && <Level6 {...levelProps(6)} />}
-        {current === 7 && <Level7 {...levelProps(7)} />}
+        {Current && (
+          <Current
+            key={current}
+            noteCollected={progress.collected.includes(current)}
+            onCollectNote={() => collect(current)}
+            onApiError={onApiError}
+          />
+        )}
       </main>
 
       {showWelcome && (
@@ -166,10 +200,13 @@ export default function App() {
                 for a plain-English definition.
               </p>
               <p>
-                Finish a level to collect its 📓 field note — notes unlock the
-                next level, and by the end your journal is a complete
-                explanation of a real quantum algorithm, written by you
-                playing.
+                Three acts: <strong>learn</strong> the algorithm (1–5),{" "}
+                <strong>build</strong> it yourself (6–7), then{" "}
+                <strong>master</strong> it — the sweet spot, the scaling law,
+                and a boss fight on a noisy machine (8–11). Finish a level to
+                collect its 📓 field note; by the end your journal is a
+                complete explanation of a real quantum algorithm, written by
+                you playing.
               </p>
             </div>
             <button
@@ -189,12 +226,13 @@ export default function App() {
         </div>
       )}
 
-      {progress.collected.length === LEVELS.length && (
+      {allDone && (
         <div className="max-w-3xl mx-auto mt-8 rounded-xl border border-emerald-400/40 bg-emerald-900/20 p-4 text-sm">
-          🏆 You didn't just watch Grover's algorithm — you assembled it from
-          parts you understand. Open the journal: you wrote the textbook.
-          (Stretch levels — overwinding, 64-tile oceans, two fish, noisy
-          hardware — are in the README's roadmap.)
+          🏆 All eleven levels. You didn't just watch Grover's algorithm — you
+          assembled it from parts you understand, forged those parts from
+          gates, learned when to stop, discovered √N with your own clicks, and
+          landed a fish on a noisy machine with nothing but tally marks. Open
+          the journal: you wrote the textbook.
         </div>
       )}
 

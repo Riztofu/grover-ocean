@@ -22,12 +22,25 @@ app.add_middleware(
 
 class CircuitRequest(BaseModel):
     num_tiles: int = Field(default=16, description="Number of tiles/shells (power of 2)")
-    target: int = Field(description="Index of the pearl/fish tile")
+    target: int | list[int] = Field(
+        description="Index of the pearl/fish tile — or a list of indices for a school of fish"
+    )
     ops: list[str] = Field(default_factory=list, description='Sequence of "spread"|"mark"|"mirror"')
 
 
 class SampleRequest(CircuitRequest):
     shots: int = Field(default=1, description="Number of measurement shots")
+    noise: float = Field(
+        default=0.0,
+        description="Depolarizing probability per ping (0 = perfect machine; the boss level's choppy sea)",
+    )
+
+
+class TrajectoryRequest(BaseModel):
+    num_tiles: int = Field(default=16)
+    target: int | list[int]
+    max_pings: int = Field(default=8, description="Compute P(catch) after 0..max_pings pings")
+    noise: float = Field(default=0.0, description="Depolarizing probability per ping")
 
 
 @app.get("/api/health")
@@ -48,7 +61,16 @@ def get_state(req: CircuitRequest) -> dict:
 def get_sample(req: SampleRequest) -> dict:
     """Honest measurement: sample shots from the circuit's true output distribution."""
     try:
-        return quantum.sample(req.num_tiles, req.target, req.ops, req.shots)
+        return quantum.sample(req.num_tiles, req.target, req.ops, req.shots, req.noise)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/trajectory")
+def get_trajectory(req: TrajectoryRequest) -> dict:
+    """Levels 8-10: P(catch) and the Grover compass angle after 0..max_pings pings."""
+    try:
+        return quantum.trajectory(req.num_tiles, req.target, req.max_pings, req.noise)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -1,0 +1,6 @@
+"""Shim: the Qollab-runnable script now lives at the repo root as main.py."""
+
+import runpy
+from pathlib import Path
+
+runpy.run_path(str(Path(__file__).resolve().parents[1] / "main.py"), run_name="__main__")

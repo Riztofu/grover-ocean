@@ -119,6 +119,90 @@ def bench_main():
     print("Workbench tests passed \u2714")
 
 
+def stretch_main():
+    """Levels 8-11: fast evaluator, ping curves, schools of fish, noisy seas."""
+    import numpy as np
+    from qiskit.quantum_info import Statevector
+
+    # 1. The fast evaluator is EXACTLY Qiskit's reference simulation, incl. multi-fish
+    for N, T, k in [(16, 7, 3), (64, 42, 6), (16, [3, 9], 2), (16, [0, 5, 10, 15], 1), (4, 2, 1)]:
+        qc = quantum.build_circuit(N, T, ["spread"] + ["mark", "mirror"] * k)
+        ref = Statevector.from_instruction(qc).data
+        assert np.allclose(ref, quantum.statevector(qc), atol=1e-10), (N, T, k)
+
+    # 2. Level 8 — Don't Overwind: 16 tiles peaks at 3 pings, then FALLS
+    tr = quantum.trajectory(16, 7, 8)
+    p = tr["probabilities"]
+    assert tr["best_pings"] == 3
+    assert p[3] > 0.96 and p[4] < 0.6 and p[6] < 0.03, "overwinding must hurt"
+    assert all(close(sum(quantum.state(16, 7, ["spread"] + ["mark", "mirror"] * k)["probabilities"][7:8]), p[k]) for k in range(9)), (
+        "trajectory must agree with state() at every k"
+    )
+    # the compass turns by exactly 2θ per ping and sweeps smoothly past 90°
+    a = tr["angles"]
+    th = tr["theta_deg"]
+    assert close(th, 14.4775, tol=1e-3)
+    assert close(a[0], th, tol=1e-6), "after the spread, the needle sits at θ"
+    assert all(close(a[k + 1] - a[k], 2 * th, tol=1e-6) for k in range(8)), "each ping rotates by 2θ"
+    assert all(close(p[k], math.sin(math.radians(a[k])) ** 2, tol=1e-9) for k in range(9)), "P = sin²(angle)"
+
+    # 3. Level 9 — Bigger Oceans: optimal pings scale like √N, not N
+    assert quantum.trajectory(64, 42, 12)["best_pings"] == 6
+    assert quantum.trajectory(256, 200, 16)["best_pings"] == 12
+    assert quantum.trajectory(256, 200, 16)["probabilities"][12] > 0.999
+
+    # 4. Level 10 — Two Fish: the oracle marks every fish; more fish = FEWER pings
+    s = quantum.state(16, [3, 9], ["spread", "mark"])
+    assert close(s["amplitudes"][3], -0.25) and close(s["amplitudes"][9], -0.25)
+    assert all(close(s["amplitudes"][i], 0.25) for i in range(16) if i not in (3, 9))
+    two = quantum.trajectory(16, [3, 9], 5)
+    assert two["best_pings"] == 2 and two["probabilities"][2] > 0.94
+    four = quantum.trajectory(16, [0, 5, 10, 15], 3)
+    assert four["best_pings"] == 1 and close(four["probabilities"][1], 1.0, tol=1e-9), "4 of 16: one ping is certain"
+    # sampling a school lands on SOME fish
+    r = quantum.sample(16, [0, 5, 10, 15], ["spread", "mark", "mirror"], shots=200)
+    assert set(r["counts"]) <= {0, 5, 10, 15} and sum(r["counts"].values()) == 200
+
+    # 5. Level 11 — noise: depolarizing per ping lowers AND shifts the peak earlier
+    clean = quantum.trajectory(64, 1, 12)["probabilities"]
+    rough = quantum.trajectory(64, 1, 12, noise=0.08)
+    # noise pulls every probability toward uniform (1/64): down where the clean
+    # chance is above average, UP where overwinding pushed it below
+    for k in range(1, 13):
+        if clean[k] > 1 / 64 + 1e-9:
+            assert rough["probabilities"][k] < clean[k], k
+        elif clean[k] < 1 / 64 - 1e-9:
+            assert rough["probabilities"][k] > clean[k], k
+    assert rough["best_pings"] < 6, "a noisy machine should overwind sooner"
+    dist = np.array(quantum.state(64, 1, ["spread"] + ["mark", "mirror"] * 3)["probabilities"])
+    assert close(sum(quantum.noisy_probabilities(dist, 3, 0.3)), 1.0, tol=1e-9), "noise keeps it a distribution"
+    assert np.allclose(quantum.noisy_probabilities(np.ones(4) / 4, 5, 0.5), 0.25), "uniform stays uniform"
+    r = quantum.sample(64, 1, ["spread"] + ["mark", "mirror"] * 6, shots=2000, noise=0.08)
+    hits = r["counts"].get(1, 0)
+    assert 1100 < hits < 1350, f"expected ~61% hits in choppy seas, got {hits / 20:.1f}%"
+
+    # 6. junk is rejected
+    for bad in (
+        lambda: quantum.trajectory(16, 7, 99),
+        lambda: quantum.trajectory(16, [], 3),
+        lambda: quantum.trajectory(16, list(range(9)), 3),
+        lambda: quantum.sample(16, 7, ["spread"], 10, noise=1.5),
+        lambda: quantum.state(16, [3, 16], ["spread"]),
+    ):
+        try:
+            bad()
+            raise AssertionError("should have been rejected")
+        except ValueError:
+            pass
+
+    print("Stretch-level tests passed ✔")
+    print(f"  64 tiles : best = {quantum.trajectory(64, 1, 12)['best_pings']} pings (√64 = 8, N/2 = 32)")
+    print(f"  256 tiles: best = {quantum.trajectory(256, 1, 16)['best_pings']} pings (√256 = 16, N/2 = 128)")
+    print(f"  2 fish/16: best = {two['best_pings']} pings;  4 fish/16: best = {four['best_pings']} ping (certain)")
+    print(f"  64 tiles, choppy sea: best = {rough['best_pings']} pings, P = {max(rough['probabilities']):.3f}")
+
+
 if __name__ == "__main__":
     main()
     bench_main()
+    stretch_main()
